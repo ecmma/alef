@@ -1,0 +1,682 @@
+% !Tex root = ../main.tex
+\hypertarget{expressions}{%
+\chapter{Expressions}\label{expressions}}
+
+The order of expression evaluation is not defined except where noted.
+That is, unless the definition of the operator guarantees evaluation
+order, an operator may evaluate any of its operands first. The behavior
+of exceptional conditions such as divide by zero, arithmetic overflow,
+and floating point exceptions is not defined by the specification and is
+implementation dependent.
+
+\hypertarget{pointer-generation}{%
+\section{Pointer generation}\label{pointer-generation}}
+
+References to expressions of type
+\passthrough{\lstinline!function returning T!} and
+\passthrough{\lstinline!array of T!} are rewritten to produce pointers
+to either the function or the first element of the array. That is,
+\passthrough{\lstinline!function returning T!} becomes
+\passthrough{\lstinline!pointer to function returning T!} and
+\passthrough{\lstinline!array of T!} becomes
+\passthrough{\lstinline!pointer to the first element of array of T!}.
+
+\hypertarget{primary-expressions}{%
+\section{Primary expressions}\label{primary-expressions}}
+
+Primary expressions are identifiers, constants, or parenthesized
+expressions:
+
+\begin{lstlisting}
+PrimaryExpression = Identifier | Literal | "nil" | [ "tuple" ] "(" ExpressionList ")" .
+\end{lstlisting}
+
+The primary expression \passthrough{\lstinline!nil!} returns a pointer
+of type \passthrough{\lstinline!pointer to void!} of value 0 which is
+guaranteed not to point at an object. \passthrough{\lstinline!nil!} may
+also be used to initialize channels and polymorphic types to a known
+value. The only legal operation on these types after such an assignment
+is a test with one of the equality test operators and the
+\passthrough{\lstinline!nil!} value.
+
+\hypertarget{postfix-expressions}{%
+\section{Postfix expressions}\label{postfix-expressions}}
+
+\begin{lstlisting}
+PostfixExpression = ( PrimaryExpression | AdtNameCall ) { PostfixOperand } .
+AdtNameCall       = "." Typename "." Identifier .
+PostfixOperand    = ArrayAccess | FuncCall | MemberAccess | IndirectAccess | UnaryPostfix .
+ArrayAccess       = "[" Expression "]" .
+FuncCall          = "(" [ ExpressionList ] ")" .
+MemberAccess      = "." Identifier .
+IndirectAccess    = "->" Identifier .
+UnaryPostfix      = "++" | "--" | "?" .
+ExpressionList    = Expression { "," Expression } .
+\end{lstlisting}
+
+\hypertarget{array-reference}{%
+\subsection{Array reference}\label{array-reference}}
+
+A primary expression followed by an expression enclosed in square
+brackets is an array indexing operation. The expression is rewritten to
+be
+
+\begin{lstlisting}
+*((PrimaryExpression)+(Expression))
+\end{lstlisting}
+
+One of the expressions must be of type pointer, the other of integral
+type.
+
+\hypertarget{function-calls}{%
+\subsection{Function calls}\label{function-calls}}
+
+Function call postfix operators yield a value of type
+\passthrough{\lstinline!pointer to function!}. A type declaration for
+the function must be declared prior to a function call. The declaration
+can be either the definition of the function or a function prototype.
+The types of each argument in the prototype must match the corresponding
+expression type under the rules of promotion and conversion for
+assignment.
+
+\hypertarget{function-call-promotions}{%
+\subsubsection{Function call
+promotions}\label{function-call-promotions}}
+
+In addition, unnamed complex type members will be promoted
+automatically. For example:
+
+\begin{lstlisting}
+aggr Test
+{
+    int t;
+    Lock; /* Unnamed substructure */
+};
+
+Test yuk;   /* Definition of complex object yuk */
+
+void lock(Lock*); /* Prototype for function lock */
+
+void main()
+{
+    lock(&yuk); /* address of yuk.Lock is passed */
+}
+\end{lstlisting}
+
+\hypertarget{adt-namecalls}{%
+\subsubsection{ADT namecalls}\label{adt-namecalls}}
+
+Calls to member functions may use the type name instead of an expression
+to identify the ADT. If the function has an implicit first parameter,
+\passthrough{\lstinline!nil!} is passed. Given the following definition
+of \passthrough{\lstinline!X!} these two calls are equivalent:
+
+\begin{lstlisting}
+adt X
+{
+    int i;
+    void f(*X);
+};
+
+X val;
+
+((X*)nil)->f();
+
+.X.f();
+\end{lstlisting}
+
+This form is illegal if the implicit parameter is declared by value
+rather than by reference.
+
+\hypertarget{polymorphic-promotions}{%
+\subsubsection{Polymorphic promotions}\label{polymorphic-promotions}}
+
+Calls to member functions of polymorphic ADT's have special promotion
+rules for function arguments. If a polymorphic type
+\passthrough{\lstinline!P!} has been bound to an actual type
+\passthrough{\lstinline!T!} then an actual parameter
+\passthrough{\lstinline!v!} of type \passthrough{\lstinline!T!}
+corresponding to a formal parameter of type \passthrough{\lstinline!P!}
+will be promoted into type \passthrough{\lstinline!P!} automatically.
+The promotion is equivalent to \passthrough{\lstinline!(alloc P)v!} as
+described in the Casts section. For example:
+
+\begin{lstlisting}
+adt X[T]
+{
+    void f(*X, T);
+};
+
+X[int] bound;
+
+bound.f(3);           /* 3 is promoted as if (alloc T)3 */
+bound.f((alloc T)3);  /* illegal: int not same as poly */
+\end{lstlisting}
+
+In the unbound case values must be explicitly converted into the
+polymorphic type using the cast syntax:
+
+\begin{lstlisting}
+X unbound;
+
+unbound.f((alloc T)3);  /* 3 is converted into poly */
+unbound.f(3);           /* illegal: int not same as poly */
+\end{lstlisting}
+
+In either case, the actual parameter must have the same type as the
+formal parameter after any binding has taken place.
+
+\hypertarget{complex-type-references}{%
+\subsection{Complex type references}\label{complex-type-references}}
+
+The operator \passthrough{\lstinline!.!} references a member of a
+complex type. The first part of the expression must yield
+\passthrough{\lstinline!union!}, \passthrough{\lstinline!aggr!}, or
+\passthrough{\lstinline!adt!}. Named members must be specified by name,
+unnamed members by type. Only one unnamed member of type typename is
+permitted in the complex type when referencing members by type,
+otherwise the reference would be ambiguous.
+
+If the reference is by typename and no members of typename exist in the
+complex, unnamed substructures will be searched breadth first. The
+operation \passthrough{\lstinline!$->$!} uses a pointer to reference a
+complex type member. The \passthrough{\lstinline!$->$!} operator follows
+the same search and type rules as \passthrough{\lstinline!.!} and is
+equivalent to the expression
+\passthrough{\lstinline!(*PostfixExpression).tag.!}
+
+References to polymorphic members of unbound polymorphic ADT's behave as
+normal members: they yield an unbound polymorphic type. Bound
+polymorphic ADT's have special rules. Consider a polymorphic type
+\passthrough{\lstinline!P!} that is bound to an actual type
+\passthrough{\lstinline!T!}. If a reference to a member or function
+return value of type \passthrough{\lstinline!P!} is assigned to a
+variable \passthrough{\lstinline!v!} of type \passthrough{\lstinline!T!}
+using the assignment operator \passthrough{\lstinline!=!}, then the type
+of \passthrough{\lstinline!P!} will be narrowed to
+\passthrough{\lstinline!T!}, assigned to \passthrough{\lstinline!v!},
+and the storage used by the polymorphic value will be unallocated. The
+value assignment operator \passthrough{\lstinline!:=!} performs the same
+type narrowing but does not unallocate the storage used by the
+polymorphic value. For example:
+
+\begin{lstlisting}
+adt Stack[T]
+{
+    int tos;
+    T data[100];
+};
+
+Stack[int] s;
+int i, j, k;
+
+i := s.data[s->tos];
+j = s.data[s->tos];
+k = s.data[s->tos]; /* s.data[s->tos] has been unallocated. */
+\end{lstlisting}
+
+The first assignment copies the value at the top of the stack into
+\passthrough{\lstinline!i!} without altering the data structure. The
+second assignment moves the value into \passthrough{\lstinline!j!} and
+unallocates the storage used in the stack data structure. The third
+assignment is illegal since \passthrough{\lstinline!data[s->tos]!} has
+been unallocated.
+
+\hypertarget{postfix-increment-and-decrement}{%
+\subsection{Postfix increment and
+decrement}\label{postfix-increment-and-decrement}}
+
+The postfix increment ( \passthrough{\lstinline!++!} ) and decrement (
+\passthrough{\lstinline!--!} ) operators return the value of expression,
+then increment it or decrement it by 1. The expression must be an
+l-value of integral or pointer type.
+
+\hypertarget{prefix-expressions}{%
+\section{Prefix expressions}\label{prefix-expressions}}
+
+\begin{lstlisting}
+UnaryExpression = PostfixExpression | UnaryPrefix | CastPrefix .
+UnaryPrefix     = ( "<-" | "++" | "--" | "zerox" ) UnaryExpression .
+CastPrefix      = UnaryOperator Term .
+UnaryOperator   = ( "?" | "*" | "&" | "!" | "+" | "-" | "~" | "sizeof" ) .
+\end{lstlisting}
+
+\hypertarget{prefix-increment-and-decrement}{%
+\subsection{Prefix increment and
+decrement}\label{prefix-increment-and-decrement}}
+
+The prefix increment ( \passthrough{\lstinline!++!} ) and prefix
+decrement ( \passthrough{\lstinline!--!} ) operators add or subtract one
+to a unary expression and return the new value. The unary expression
+must be an l-value of integral or pointer type.
+
+\hypertarget{receive-and-can-receive}{%
+\subsection{Receive and can receive}\label{receive-and-can-receive}}
+
+The prefix operator \passthrough{\lstinline!<-!} receives a value from a
+channel. The unary expression must be of type
+\passthrough{\lstinline!channel of T!}. The type of the result will be
+\passthrough{\lstinline!T!}. A process or task will block until a value
+is available from the channel. The \emph{prefix} operator
+\passthrough{\lstinline!?!} returns \passthrough{\lstinline!1!} if a
+channel has a value available for receive, \passthrough{\lstinline!0!}
+otherwise.
+
+\hypertarget{send-and-can-send}{%
+\subsection{Send and Can send}\label{send-and-can-send}}
+
+The postfix operator \passthrough{\lstinline!<-!}, on the left-hand side
+of an assignment sends a value to a channel, for example:
+
+\begin{lstlisting}
+chan(int) c;
+c <-= 1;    /* send 1 on channel c */
+\end{lstlisting}
+
+The \emph{postfix} operator \passthrough{\lstinline!?!} returns
+\passthrough{\lstinline!1!} if a thread can send on a channel without
+blocking, \passthrough{\lstinline!0!} otherwise. The prefix or postfix
+blocking test operator ? is only reliable when used on a channel shared
+between tasks in a single process. A process may block after a
+successful \passthrough{\lstinline!?!} because there may be a race
+between processes competing for the same channel.
+
+\hypertarget{indirection}{%
+\subsection{Indirection}\label{indirection}}
+
+The unary prefix operator \passthrough{\lstinline!*!} retrieves the
+value pointed to by its operand. The operand must be of type
+\passthrough{\lstinline!pointer to T!}. The result of the indirection is
+a value of type \passthrough{\lstinline!T!}.
+
+\hypertarget{unary-plus-and-minus}{%
+\subsection{Unary plus and minus}\label{unary-plus-and-minus}}
+
+Unary plus is equivalent to
+\passthrough{\lstinline!(0+(UnaryExpression))!}. Unary minus is
+equivalent to \passthrough{\lstinline!(0-(UnaryExpression))!}. An
+integral operand undergoes integral promotion. The result has the type
+of the promoted operand.
+
+\hypertarget{bitwise-negate}{%
+\subsection{Bitwise negate}\label{bitwise-negate}}
+
+The operator \passthrough{\lstinline!\~!} performs a bitwise negation of
+its operand, which must be of integral type.
+
+\hypertarget{logical-negate}{%
+\subsection{Logical negate}\label{logical-negate}}
+
+The operator \passthrough{\lstinline"!"} performs logical negation of
+its operand, which must of arithmetic or pointer type. If the operand is
+a pointer and its value is \passthrough{\lstinline!nil!} the result is
+integer \passthrough{\lstinline!1!}, otherwise
+\passthrough{\lstinline!0!}. If the operand is arithmetic and the value
+is \passthrough{\lstinline!0!} the result is
+\passthrough{\lstinline!1!}, otherwise the result is
+\passthrough{\lstinline!0!}.
+
+\hypertarget{zerox}{%
+\subsection{Zerox}\label{zerox}}
+
+The \passthrough{\lstinline!zerox!} operator may only be applied to an
+expression of polymorphic type. The result of
+\passthrough{\lstinline!zerox!} is a new fat pointer, which points at a
+copy of the result of evaluating its operand. For example:
+
+\begin{lstlisting}
+typedef Poly;
+Poly a, b, c;
+a = (alloc Poly)10;
+b = a; 
+c = zerox a;
+\end{lstlisting}
+
+causes \passthrough{\lstinline!a!} and \passthrough{\lstinline!b!} to
+point to the same storage for the value \passthrough{\lstinline!10!} and
+\passthrough{\lstinline!c!} to point to distinct storage containing
+another copy of the value \passthrough{\lstinline!10!}.
+
+\hypertarget{sizeof-operator}{%
+\subsection{Sizeof operator}\label{sizeof-operator}}
+
+The \passthrough{\lstinline!sizeof!} operator yields the size in
+\passthrough{\lstinline!byte!}s of its operand, which may be an
+expression or the parenthesized name of a type. The size is determined
+from the type of the operand, which is not itself evaluated. The result
+is a \passthrough{\lstinline!signed integer!} constant.
+
+\hypertarget{term-expressions}{%
+\section{Term expressions}\label{term-expressions}}
+
+\begin{lstlisting}
+Term            = UnaryExpression | CastExpression | AllocExpression .
+CastExpression  = "(" TypeCast ")" Term .
+AllocExpression = "(" "alloc" Typename ")" Term .
+TypeCast        = BaseType [ PtrSpec ] [ FuncCast ] | "tuple" "(" TupleList ")" .
+FuncCast        = "(" [ PtrSpec ] ")" "(" [ ParamList ] ")" .
+\end{lstlisting}
+
+\hypertarget{cast-expressions}{%
+\subsection{Cast expressions}\label{cast-expressions}}
+
+A cast converts the result of an expression into a new type. A value of
+any type may be converted into a polymorphic type by adding the keyword
+\passthrough{\lstinline!alloc!} before the polymorphic type name. This
+has the effect of allocating storage for the value, assigning the value
+of the operand into the storage, and yielding a fat pointer as the
+result. For example, to create a polymorphic variable with integer value
+\passthrough{\lstinline!10!}:
+
+\begin{lstlisting}
+typedef Poly;
+Poly p;
+p = (alloc Poly) 10;
+\end{lstlisting}
+
+The only other legal cast involving a polymorphic type converts one
+polyname into another.
+
+\hypertarget{binary-expressions}{%
+\section{Binary expressions}\label{binary-expressions}}
+
+Binary operators in LL grammars lose their left associativity. A given
+implementation will use Dijkstra's shunting yard algorithm or a Pratt
+Parser. Nonetheless, a list of valid expressions follows.
+
+\begin{lstlisting}
+Expression   = Term | Expression BinaryOp Expression .
+BinaryOp     = SumOp | MulOp | LogOp | ShOp | CompOp | EqOp | AssOp | IterOp .
+SumOp        = "+" | "-" .
+MulOp        = "\*" | "/" .
+LogOp        = BitwiseLogOp | "&&" | "||" .
+BitwiseLogOp = "^" | "&" | "|" .
+ShOp         = "<<" | ">>" .
+CompOp       = "<" | ">" | ">= " | "<=" .
+EqOp         = "==" | "!=" . 
+AssOp        = "=" | ":=" | "<-=" | (SumOp | MulOp | BitwiseLogOp | ShOp ) "=" .
+IterOp       = "::" .
+\end{lstlisting}
+
+\hypertarget{multiply-divide-and-modulus}{%
+\subsection{Multiply, divide and
+modulus}\label{multiply-divide-and-modulus}}
+
+The operands of \passthrough{\lstinline!*!} and
+\passthrough{\lstinline!/!} must have arithmetic type. The operands of
+\passthrough{\lstinline!\%!} must be of integral type. The operator
+\passthrough{\lstinline!/!} yields the quotient,
+\passthrough{\lstinline!\%!} the remainder, and
+\passthrough{\lstinline!*!} the product of the operands. If
+\passthrough{\lstinline!b!} is non-zero then
+\passthrough{\lstinline!a == (a/b) + a\%b!} should always be true.
+
+\hypertarget{add-and-subtract}{%
+\subsection{Add and subtract}\label{add-and-subtract}}
+
+The \passthrough{\lstinline!+!} operator computes the sum of its
+operands. Either one of the operands may be a pointer. If
+\passthrough{\lstinline!P!} is an expression yielding a pointer to type
+\passthrough{\lstinline!T!} then \passthrough{\lstinline!P+n!} is the
+same as \passthrough{\lstinline!p+(sizeof(T)*n)!}. The
+\passthrough{\lstinline!-!} operator computes the difference of its
+operands. The first operand may be of pointer or arithmetic type. The
+second operand must be of arithmetic type. If
+\passthrough{\lstinline!P!} is an expression yielding a pointer of type
+\passthrough{\lstinline!T!} then \passthrough{\lstinline!P-n!} is the
+same as \passthrough{\lstinline!p-(sizeof(T)*n)!}. Thus if
+\passthrough{\lstinline!P!} is a pointer to an element of an array,
+\passthrough{\lstinline!P+1!} will point to the next object in the array
+and \passthrough{\lstinline!P-1!} will point to the previous object in
+the array.
+
+\hypertarget{shift-operators}{%
+\subsection{Shift operators}\label{shift-operators}}
+
+The shift operators perform bitwise shifts. If the first operand is
+unsigned, \passthrough{\lstinline!<<!} performs a logical left shift by
+a number of bits as its right operand. If the first operand is signed,
+\passthrough{\lstinline!<<!} performs an arithmetic left shift by a
+number of bits as its right operand. The left operand must be of
+integral type. The \passthrough{\lstinline!>>!} operator is a right
+shift and follows the same rules as left shift.
+
+\hypertarget{relational-operators}{%
+\subsection{Relational Operators}\label{relational-operators}}
+
+The values of expressions can be compared using relational operators.
+The operators are \passthrough{\lstinline!<!} (less than),
+\passthrough{\lstinline!>!} (greater than), \passthrough{\lstinline!<=!}
+(less than or equal to) and \passthrough{\lstinline!>=!} (greater than
+or equal to). The operands must be of arithmetic or pointer type. The
+value of the expression is \passthrough{\lstinline!1!} if the relation
+is true, otherwise \passthrough{\lstinline!0!}. The usual arithmetic
+conversions are performed. Pointers may only be compared to pointers of
+the same type or of type \passthrough{\lstinline!void*!}.
+
+\hypertarget{equality-operators}{%
+\subsection{Equality operators}\label{equality-operators}}
+
+The operators \passthrough{\lstinline!==!} (equal to) and
+\passthrough{\lstinline"!="} (not equal) follow the same rules as
+relational operators. The equality operations may be applied to
+expressions yielding channels and polymorphic types for comparison with
+the value \passthrough{\lstinline!nil!}. A pointer of value
+\passthrough{\lstinline!nil!} or type \passthrough{\lstinline!void*!}
+may be compared to any pointer.
+
+\hypertarget{bitwise-logic-operators}{%
+\subsection{Bitwise logic operators}\label{bitwise-logic-operators}}
+
+The bitwise logic operators perform bitwise logical operations and apply
+only to integral types. The operators are \passthrough{\lstinline!\&!}
+(bitwise and), \passthrough{\lstinline!\^!} (bitwise exclusive or) and
+\passthrough{\lstinline!|!} (bitwise inclusive or).
+
+\hypertarget{logical-operators}{%
+\subsection{Logical operators}\label{logical-operators}}
+
+The \passthrough{\lstinline!\&\&!} operator returns
+\passthrough{\lstinline!1!} if both of its operands evaluate to
+non-zero, otherwise \passthrough{\lstinline!0!}. The
+\passthrough{\lstinline!||!} operator returns
+\passthrough{\lstinline!1!} if either of its operand evaluates to
+non-zero, otherwise \passthrough{\lstinline!0!}. Both operators are
+guaranteed to evaluate strictly left to right. Evaluation of the
+expression will cease as soon the final value is determined. The
+operands can be any mix of arithmetic and pointer types.
+
+\hypertarget{constant-expressions}{%
+\subsection{Constant expressions}\label{constant-expressions}}
+
+A constant expression is an expression which can be fully evaluated by
+the compiler during translation rather than at runtime.
+Constant expression appears as part of initialization, channel buffer
+specifications, and array dimensions. The following operators may not be
+part of a constant expression: function calls, assignment, send,
+receive, increment and decrement. Address computations using the
+\passthrough{\lstinline!\&!} (address of) operator on static
+declarations is permitted.
+
+\hypertarget{assignment}{%
+\subsection{Assignment}\label{assignment}}
+
+The assignment operators are:
+
+\begin{lstlisting}
+= := += *= /= -= %= &= |= ^= >>= <<= 
+\end{lstlisting}
+
+The left side of the expression must be an l-value. Compound assignment
+allows the members of a complex type to be assigned from a member list
+in a single statement. A compound assignment is formed by casting a
+tuple into the complex type. Each element of the tuple is evaluated in
+turn and assigned to its corresponding element in the complex types. The
+usual conversions are performed for each assignment.
+
+\begin{lstlisting}
+/* Encoding of read message to send to file system */
+aggr Readmsg
+{
+    int fd;
+    void *data;
+    int len;
+};
+
+chan (Readmsg) filesys;
+
+int read(int fd, void *data, int len)
+{
+    /* Pack message parameters and send to file system */
+    filesys <-= (Readmsg)(fd, data, len);
+}
+\end{lstlisting}
+
+If the left side of an assignment is a tuple, selected members may be
+discarded by placing nil in the corresponding position in the tuple
+list. In the following example only the first and third integers
+returned from func are assigned.
+
+\begin{lstlisting}
+(int, int, int) func();
+
+void main()
+{
+    int a, c;
+    (a, nil, c) = func();
+}
+\end{lstlisting}
+
+The \passthrough{\lstinline!<-=!} (assign send) operator sends the value
+of the right side into a channel. The unary-expression must be of type
+\passthrough{\lstinline!channel of T!}. If the left side of the
+expression is of type \passthrough{\lstinline!channel of T!}, the value
+transmitted down the channel is the same as if the expression were
+\passthrough{\lstinline!object of type T = expression!}.
+
+\hypertarget{promotion}{%
+\subsubsection{Promotion}\label{promotion}}
+
+If the two sides of an assignment yield different complex types then
+assignment promotion is performed. The type of the right hand side is
+searched for an unnamed complex type under the same rules as the
+\passthrough{\lstinline!.!} operator. If a matching type is found it is
+assigned to the left side. This promotion is also performed for function
+arguments.
+
+\hypertarget{polymorphic-assignment}{%
+\subsubsection{Polymorphic assignment}\label{polymorphic-assignment}}
+
+There are two operators for assigning polymorphic values. The reference
+assignment operator \passthrough{\lstinline!=!} copies the fat pointer.
+For example:
+
+\begin{lstlisting}
+typedef Poly;
+Poly a, b;
+int i;
+a = (alloc Poly)i;
+b = a; 
+\end{lstlisting}
+
+causes \passthrough{\lstinline!a!} to be given a fat pointer to a copy
+of the variable \passthrough{\lstinline!i!} and
+\passthrough{\lstinline!b!} to have a distinct fat pointer pointing to
+the same copy of \passthrough{\lstinline!i!}. Polymorphic variables
+assigned with the \passthrough{\lstinline!=!} operator must be of the
+same polymorphic name. The value assignment operator
+\passthrough{\lstinline!:=!} copies the value of one polymorphic
+variable to another. The variable and value must be of the same
+polymorphic name and must represent values of the same type; there is no
+implicit type promotion. In particular, the variable being assigned to
+must already be defined, as it must have both a type and storage. For
+example:
+
+\begin{lstlisting}
+typedef Poly;
+Poly a, b, c;
+int i, j;
+a = (alloc Poly)i;
+b = (alloc Poly)j;
+b := a; 
+c := a; /* illegal */
+\end{lstlisting}
+
+causes \passthrough{\lstinline!a!} to be given a fat pointer to a copy
+of the variable \passthrough{\lstinline!i!} and
+\passthrough{\lstinline!b!} to be given a fat pointer to a copy of the
+variable \passthrough{\lstinline!j!}. The value assignment
+\passthrough{\lstinline!b:=a!} copies the value of
+\passthrough{\lstinline!i!} from the storage referenced by the fat
+pointer of \passthrough{\lstinline!a!} to the storage referenced by
+\passthrough{\lstinline!b!}, with the result being that
+\passthrough{\lstinline!a!} and \passthrough{\lstinline!b!} point to
+distinct copies of the value of \passthrough{\lstinline!i!}; the
+reference to the value of \passthrough{\lstinline!j!} is lost. The
+assignment \passthrough{\lstinline!c := a!} is illegal because
+\passthrough{\lstinline!c!} has no storage to hold the value;
+\passthrough{\lstinline!c!} is in effect an uninitialized pointer. A
+polymorphic variable may be assigned the value
+\passthrough{\lstinline!nil!}. This assigns the value
+\passthrough{\lstinline!0!} to the pointer element of the fat pointer
+but leaves the type field unmodified.
+
+\hypertarget{iterators}{%
+\subsection{Iterators}\label{iterators}}
+
+The iteration operator causes repeated execution of the statement that
+contains the iterating expression by constructing a loop surrounding
+that statement.
+
+The operands of the iteration operator are the integral bounds of the
+loop. The iteration counter may be made explicit by assigning the value
+of the iteration expression to an integral variable; otherwise it is
+implicit. The two expressions are evaluated before iteration begins. The
+iteration is performed while the iteration counter is less than the
+value of the second expression (the same convention as array bounds).
+When the counter is explicit, its value is available throughout the
+statement. For example, here are two implementations of a string copy
+function:
+
+\begin{lstlisting}
+void copy(byte *to, byte *from)
+{
+    to[0::strlen(from)+1] = *from++;
+}
+
+void copy(byte *to, byte *from)
+{
+    int i;
+    to[i] = from[i=0::strlen(from)+1];
+}
+\end{lstlisting}
+
+If iterators are nested, the order of iteration is undefined.
+
+\hypertarget{associtivity-and-precedence-of-operators}{%
+\section{Associtivity and precedence of
+operators}\label{associtivity-and-precedence-of-operators}}
+
+\begin{longtable}[]{@{}ccc@{}}
+\toprule
+Precedence & Assoc. & Operator \\
+\midrule
+\endhead
+14 & L to R & () {[}{]} -\textgreater{} \\
+13 & R to L & ! \textasciitilde{} ++ -- \textless- ? + - * \& (cast)
+sizeof zerox \\
+12 & L to R & * / \% \\
+11 & L to R & + - \\
+10 & L to R & \textless\textless{} \textgreater\textgreater{} \\
+9 & R to L & :: \\
+8 & L to R & \textless{} \textless= \textgreater{} \textgreater= \\
+7 & L to R & == != \\
+6 & L to R & \& \\
+5 & L to R & \^{} \\
+4 & L to R & \textbar{} \\
+3 & L to R & \&\& \\
+2 & L to R & \textbar\textbar{} \\
+1 & L to R & \textless-= = := += -= *= /= \%= \&= \^{}= \textbar=
+\textless\textless= \textgreater\textgreater= \\
+\bottomrule
+\end{longtable}

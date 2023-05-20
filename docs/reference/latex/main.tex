@@ -1,0 +1,153 @@
+\documentclass[12pt, a4paper,titlepage]{report}
+\usepackage[a4paper,left=2cm,right=2cm,top=2.5cm,bottom=2.5cm]{geometry}
+\usepackage{
+  mathptmx, % use ~Times New Roman
+  wrapfig,
+  graphicx, 
+  titlesec, 
+  fancyhdr,
+  tikz, 
+  pgfplots, 
+  amsmath,
+  amssymb,
+  subcaption, 
+  amsthm,
+  multirow,
+  algorithm, 
+  algpseudocode,
+  listings, 
+  newtxtt, 
+  longtable, 
+  booktabs
+}
+
+\usepackage[]{hyperref}
+\hypersetup{
+  colorlinks=false,
+  urlbordercolor=black,% url borders will be red
+  pdfborderstyle={/S/U/W 1}% border style will be underline of width 1pt
+}
+
+
+\lstset{ % General setup for the package
+	basicstyle=\small\sffamily,
+	numbers=none,
+ 	numberstyle=\tiny,
+	frame=tb,
+	tabsize=4,
+	columns=fixed,
+	showstringspaces=false,
+	showtabs=false,
+	keepspaces,
+	commentstyle=\color{red},
+	keywordstyle=\color{blue}
+}
+
+
+\renewcommand{\abstractname}{\large Abstract}
+\newcommand{\passthrough}[1]{#1}
+\lstset{basicstyle=\ttfamily\footnotesize,breaklines=true}
+\setlength{\headheight}{15pt}
+\DeclareMathOperator*{\opt}{opt}
+\pgfplotsset{compat=1.17}
+\newcommand{\pgfenv}{
+\pgfplotsset{
+        standard/.style={%Axis format configuration
+        axis x line=middle,
+        axis y line=middle,
+        enlarge x limits=0.15,
+        enlarge y limits=0.15,
+        every axis x label/.style={at={(current axis.right of origin)},anchor=north west},
+        every axis y label/.style={at={(current axis.above origin)},anchor=north east},
+        every axis plot post/.style={mark options={fill=white}}
+        }
+    }
+  }
+
+\setcounter{tocdepth}{4}
+\setcounter{secnumdepth}{4}
+% Revert to Computer Modern Symbol math alphabet
+\DeclareMathAlphabet{\mathcal}{OMS}{cmsy}{m}{n}
+\SetMathAlphabet{\mathcal}{bold}{OMS}{cmsy}{b}{n}
+
+% Chapter Titling: Chapter [0-9] LEFT, Chapter Title RIGHT
+\newcommand*{\justifyheading}{\raggedleft}
+\titleformat{\chapter}[display]
+{\normalfont\large}{\MakeUppercase\chaptertitlename \ \ \thechapter}
+{20pt}{\Huge\bfseries\justifyheading}
+
+
+\begin{document}
+
+% Forewords + TOC Page header Style
+% pageNumber -- Chapter Title -------- | ------- Chapter Title -- pageNumber
+\pagestyle{fancy}
+\renewcommand{\headrulewidth}{0pt} % to remove line on header
+\renewcommand{\footrulewidth}{0pt} % to remove line on footer
+\renewcommand{\chaptermark}[1]{\markboth{#1}{}}
+\fancyhead[LE]{\thepage \ \ }
+\fancyhead[RO]{\MakeUppercase\leftmark \ \ \thepage}
+\fancyfoot[C] {\thepage}
+
+
+\begin{abstract}
+This document is a formal specification of the Alef programming language.
+It specifies the syntactic features of the language and explains it semantics. 
+Any compiler or interpreter for this language must conform to these specifics.
+Grammar rules are expressed using EBNF: 
+\begin{lstlisting}
+Production  = production_name "=" [ Expression ] "." .
+Expression  = Alternative { "|" Alternative } .
+Alternative = Term { Term } .
+Term        = production_name | token [ "..." token ] | Group | Option | Repetition .
+Group       = "(" Expression ")" .
+Option      = "[" Expression "]" .
+Repetition  = "{" Expression "}" .   (* Repeating 0 times is allowed. *)
+\end{lstlisting}
+(Taken from \url{https://golang.org/ref/spec}.)
+
+\vspace*{1em}
+\noindent
+Notes about the current implementation and examples are in italic: 
+
+{\it This is an example.}
+
+\noindent
+Code snippets and grammar rules are represented using listings:
+\begin{lstlisting}
+    this is a code snippet.
+\end{lstlisting}
+
+\vspace*{1em}
+\noindent
+This document is a draft. 
+\end{abstract}
+
+\tableofcontents    
+
+
+% Corpus Header Style
+% pageNumber -- ChapterTitle ----- Chapter | Chapter ------ Section -- pageNumber
+\pagestyle{fancy}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\chaptermark}[1]{\markboth{#1}{}}
+\fancyhf{}
+\fancyhead[LE]{\thepage \ \ \MakeUppercase\leftmark}
+\fancyhead[RE, LO]{\MakeUppercase\chaptertitlename \ \ \thechapter}
+\fancyhead[RO]{\rightmark \ \ \thepage}
+\fancyfoot[C]{\thepage}
+
+\input{chapters/model.tex} 
+\input{chapters/type_system.tex}
+\input{chapters/lex.tex}
+\input{chapters/decs.tex}
+\input{chapters/exprs.tex}
+\input{chapters/stmns.tex}
+
+%%%%%%%%%%
+
+\appendix
+% if necessary, insert here your appendices
+% if necessary, insert here your bibliography
+
+\end{document}

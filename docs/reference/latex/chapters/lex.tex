@@ -1,0 +1,147 @@
+% !TEX root = ../main.tex 
+\hypertarget{lexical-analysis}{%
+\chapter{Lexical analysis}\label{lexical-analysis}}
+
+Compilation starts with a preprocessing phase. An ANSI C preprocessor is
+used, and any directive valid in such standard is valid in Alef as well.
+The preprocessor performs file inclusion and macro substitution.
+Comments and lines beginning with the character
+\passthrough{\lstinline!\#!}are consumed by the preprocessor. The
+preprocessor produces a sequence of tokens for the compiler\footnote{Note
+  that using, for example, GCC's CPP on an Alef source file will produce
+  a compilation unit with ``\#''-directives, which aren't described in
+  this document, but is instead the objective of the compiler engineer
+  to manage these implementation-dependent notions.}. Comments are
+removed by the preprocessor. Any form of comment accepted by the
+preprocessor is valid. For example, GNU's CPP might accept (and remove)
+both \passthrough{\lstinline!/*...*/!} and
+\passthrough{\lstinline!//..!} style comments.
+
+\hypertarget{tokens}{%
+\section{Tokens}\label{tokens}}
+
+The lexical analyzer classifies tokens as identifiers, keywords,
+literals and operators. Tokens are separated by white space, which is
+ignored in the source except as needed to separate sequences of tokens
+which would otherwise be ambiguous. The lexical analyzer is greedy: if
+tokens have been consumed up to a given character, then the next token
+will be the longest subsequent string of characters that forms a legal
+token.
+
+\hypertarget{reserved-words}{%
+\subsection{Reserved words}\label{reserved-words}}
+
+\hypertarget{keywords}{%
+\subsubsection{Keywords}\label{keywords}}
+
+The following symbols are keywords reserved by the language and may not
+be used as user-defined identifiers:
+
+\begin{lstlisting}
+adt     aggr    alloc   alt     become    break   check   continue  default
+do      else    enum    extern  float     for     goto    if        int
+intern  lint    nil     par     proc      raise   rescue  return    sint
+sizeof  switch  task    tuple   typedef   typeof  uint    ulint     unalloc
+union   usint   void    while   zerox
+\end{lstlisting}
+
+Keywords that identify types, such as \passthrough{\lstinline!int!} or
+\passthrough{\lstinline!chan!} are, from the point of view of lexical
+analysis, seen as identifiers. It will be the job of the compiler to
+make it so that at any time, if the parser has to distinguish between an actual
+identifier and a typename, the symbol table at that point will
+reflect the fact that \passthrough{\lstinline!int!} and
+\passthrough{\lstinline!chan!}, for example, are predefined types. In the same
+fashion, the \passthrough{\lstinline!nil!} keyword isn't interpreted as
+a keyword, but as an always-defined constant of type
+\passthrough{\lstinline!void\\*!} of value
+\passthrough{\lstinline!0!}. In other words, to correctly build the parse tree
+the parser needs the information to discern identifiers and typenames (otherwise, 
+type declarations such as \passthrough{\lstinline!int* a!} would be undiscernible 
+from multiplication expressions, as both would be seen as 
+\passthrough{\lstinline!identifier op_mul identifier!}.)
+
+\hypertarget{delimiters-and-operators}{%
+\subsubsection{Delimiters and operators}\label{delimiters-and-operators}}
+
+The following symbols are used as delimiters and operators in the
+language:
+
+\begin{lstlisting}
++   -   /   =   >   <   !   \%   &   |   ?   .   "   '   {   } 
+[   ]   (   )   \*   ;   :   ^   +=  -=  /=  \*=  \%=  &=  |=  ^=
+<<= >>= ==  !=  --  <-  ->  ++  ::  :=
+\end{lstlisting}
+
+\hypertarget{identifiers}{%
+\subsection{Identifiers}\label{identifiers}}
+
+An identifier, also called a lexical name, is any sequence of
+alpha-numeric characters and the underscore character
+\passthrough{\lstinline!\\\_!}. An identifiers binds a name to a
+semantic object such as a type, a function or a variable. Identifiers
+starting with ``ALEF'' are reseved for use in the runtime system.
+
+\begin{lstlisting}
+ASCII      = "a" | "b" | ... | "z" | "A" | "B" | ... | "Z" .
+Digits     = "0" | "1" | ... | "9" .
+Identifier = ( "_" | ASCII ) { ( "_" | ASCII | Digits ) } .
+\end{lstlisting}
+
+Identifiers may define variables, types, functions, function prototypes
+or enumerators. An identifier has associated a
+\protect\hyperlink{scopes}{scope} and a \protect\hyperlink{storage-classes}{storage classes}.
+
+\hypertarget{literals}{%
+\subsection{Literals}\label{literals}}
+
+Alef literals are integer and floating point numbers, characters,
+strings and runestrings (UTF-8 strings.) There are five types of
+constant:
+
+\begin{lstlisting}
+Literal       = StringLit | RunestringLit | CharLit | IntLit | FloatLit .
+StringLit     = '"' { ASCII | Escapes } '"' .
+Escapes       = "\" ("0" | "n" | "r" | "t" | "b" | "f" | "a" | "v" | "\" | `"` ) .
+RunestringLit = @TODO
+CharLit       = @TODO .
+IntLit        = [ "0" [ ( HexLit | OctalLit ) ] ] | DecimalLit .
+HexLit        = ("x" | "X") { HexDigits }.
+HexDigits     = "0" ... "9" | "A" ... "F" | "a" ... "f" .
+OctalLit      = { OctalDigits } .
+OctalDigits   = "0" ... "7"
+DecimalLit    = ( "1" | ... | "9" ) { Digits } .
+FloatLit      = @TODO . 
+\end{lstlisting}
+
+Character literals have the type \passthrough{\lstinline!uint!} and can
+hold UTF-8 code points. String literals have type
+\passthrough{\lstinline!static array of byte!} and are NUL
+(\passthrough{\lstinline!\\0!}) terminated (appended by the compiler);
+therefore, the sizeof operator applied to a string yields the number of
+bytes including the appended NUL. Rune string literals are sequences of
+UTF-8 code points and have type
+\passthrough{\lstinline!static array of uint!}, and are NUL
+(\passthrough{\lstinline!U+0000!}) terminated (appended by the
+compiler); therefore, the sizeof operator applied to a string yields the
+number of runes in the runestring, in terms of
+\passthrough{\lstinline!sizeof(uint)!} including the appended NUL. The
+following table shows valid characters after an escape and the value of
+the constant:
+
+\begin{lstlisting}
+0     NUL     Null character
+n     NL      Newline
+r     CR      Carriage return
+t     HT      Horizontal tab
+b     BS      Backspace
+f     FF      Form feed
+a     BEL     Beep
+v     VT      Vertical tab
+\         \   Backslash
+"     "   Double quote
+\end{lstlisting}
+
+Float literals have type \passthrough{\lstinline!float!}. Integer
+literal have type \passthrough{\lstinline!int!}.
+

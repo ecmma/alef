@@ -1,0 +1,330 @@
+% !TEX root = ../main.tex 
+
+\hypertarget{declarations}{%
+\chapter{Declarations}\label{declarations}}
+
+\hypertarget{programs}{%
+\section{Programs}\label{programs}}
+
+A declaration attaches a type to an identifier; it need not reserve
+storage. A declaration which reserves storage is called a definition. A
+program consists of a list of declarations. A declaration can define a
+simple variable, a function, a prototype to a function, an ADT function,
+a type specification, or a type definition.
+
+\begin{lstlisting}
+Program     = { Declaration } .
+Declaration = [ Visibility ] ( SimpleDecl | ComplexDecl | TypeDefs ).
+Visibility  = "intern" | "extern" .
+\end{lstlisting}
+
+A declaration introduces an identifier and specifies its type. A
+definition is a declaration that also reserves storage for an
+identifier. An object is an area of memory of known type produced by a
+definition. Function prototypes, variable declarations preceded by
+extern, and type specifiers are declarations. Function declarations with
+bodies and variable declarations are examples of definitions.
+
+\hypertarget{scopes}{%
+\subsection{Scopes}\label{scopes}}
+
+Scopes define where a named object, that is an identifier with a precise
+semantic meaning, can be referenced.
+
+\hypertarget{file-scope}{%
+\subsubsection{File scope}\label{file-scope}}
+
+A declaration introduces an identifier and specifies its type. A
+definition is a declaration that also reserves storage for an
+identifier. Declaration at the file scope are implicitly assumed to be
+``extern'' declarations, that is, visible to all compilations units. If
+a declaration is preceded with the ``intern'' keyword, its scope is
+narrowed to its compilation unit only. Variable declarations (that is,
+variable declarations preceded by the keyword ``extern'') aren't
+definitions, and therefore do not allocate space for the variable.
+Similarly, function prototypes do not allocate space\footnote{\textbf{@TODO}:
+  The use of extern as a keyword to make a variable visible in the
+  entire compilation unit and to make non-allocating definitions is
+  highly unclear -- we might use a different keyword to indicate
+  non-allocating definitions.}.
+
+\hypertarget{type-scope}{%
+\subsubsection{Type scope}\label{type-scope}}
+
+Members of complex types (ADT's, aggregates or union) are in scope only
+when an access operator is applied to objects of their appartaining
+type. Members of unions and aggregates are always accessible from
+outside. Access to members of ADT's can be restricted (or enabled) using
+visibility specifiers ``intern'' and ``extern'': variable members are,
+by default, ``intern'', that is not accessible from outside. Methods
+(function members of an ADT) are by default ``extern''.
+
+\hypertarget{function-scope}{%
+\subsubsection{Function scope}\label{function-scope}}
+
+Labels and raise statement's identifiers can be referenced from the
+start of a function to its end, regardless of the position of the
+declaration.
+
+\hypertarget{local-scope}{%
+\subsubsection{Local scope}\label{local-scope}}
+
+Local identifiers are declared at the start of a block\footnote{\textbf{@TODO}:
+  This means that, in a function's body, automatic variables can be
+  declared only at the start, before any statement.}. A local identifier
+has scope starting from its declaration to the end of the block in which
+it was declared.
+
+\hypertarget{storage-classes}{%
+\subsection{Storage classes}\label{storage-classes}}
+
+While scopes define where identifiers have meaning, storage classes
+define the lifetime ``of the meaning'', that is, when variables and
+functions are created and deleted, and to what value they're
+initialized.
+
+\hypertarget{automatic-storage-class}{%
+\subsubsection{Automatic storage class}\label{automatic-storage-class}}
+
+Automatic objects are created at the entry of the block in which they
+were declared, and their value is undefined upon creation.
+
+\hypertarget{parameter-storage-class}{%
+\subsubsection{Parameter storage class}\label{parameter-storage-class}}
+
+Function parameters are created by function invocation and are destroyed
+at function exit. They have the value of the values passed by the
+caller.
+
+\hypertarget{static-storage-class}{%
+\subsubsection{Static storage class}\label{static-storage-class}}
+
+Static objects exist from invocation of the program until termination,
+and uninitialized static objects have, at creation, the value 0.
+
+\hypertarget{simple-declarations}{%
+\section{Simple declarations}\label{simple-declarations}}
+
+A simple declaration consists of a type specifier and a list of
+identifiers. Each identifier may be qualified by deriving operators.
+Simple declarations at the file scope may be initialized. Function
+pointer declarations have \emph{per sé} rules.
+
+\begin{lstlisting}
+SimpleDecl = Type [ PtrSpec ] ( FuncPtr | BaseDecl ) . 
+FuncPtr    = "(" [ PtrSpec ] Identifier ( FuncPtrFuncDecl | FuncPtrVarDecl ) .
+BaseDecl   = Identifier ( FuncDecl | VarDecl |  MethDecl ) .
+\end{lstlisting}
+
+\hypertarget{function-pointer-declarations}{%
+\subsection{Function pointer
+declarations}\label{function-pointer-declarations}}
+
+\begin{lstlisting}
+FuncPtrFuncDecl  = "(" [ ParamList ] ")" ")" "(" [ ParamList ] ")" ( ";" | Block ) .
+ParamList         = Param { "," Param } .
+Param            = SimpleParam | TupleParam  | "..." .
+SimpleParam      = BaseType [ PtrSpec ] [ ( BaseParam |  FuncPtrParam ) ] . 
+BaseParam        = Identifier [ ArraySpec ] . 
+FuncPtrParam     = "(" PtrSpec [ Identifier ] [ ArraySpec ] ")"  "(" [ ParamList ] ")" .
+TupleParam       = "tuple" "(" TupleList ")" [ [ PtrSpec ] ( BaseParam | FuncPtrParam ) ] .
+FuncPtrVarDecl   = [ ArraySpec ] ")"  "(" [ ParamList ] ")" [ "=" InitExpression ] ( ";" |  "," [ PtrSpec ] ( "(" [ PtrSpec ] Identifier FuncPtrVarDecl | Identifier VarDecl ) ) .
+\end{lstlisting}
+
+The parameters received by a function taking variable arguments are
+referenced using the ellipsis \passthrough{\lstinline!...!}. The token
+\passthrough{\lstinline!...!} yields is a value of type
+\passthrough{\lstinline!pointer to void!}. The value points at the first
+location after the formal parameters.
+
+\hypertarget{examples-of-function-pointer-declarations.}{%
+\subsubsection{Examples of function pointer
+declarations.}\label{examples-of-function-pointer-declarations.}}
+
+\hypertarget{a-variable-of-type-function-pointer.}{%
+\paragraph{A variable of type array of function pointer.}
+\label{a-variable-of-type-function-pointer.}}
+In this example,
+\begin{lstlisting}
+int * (* func_ptr[2] ) (int, bool);
+\end{lstlisting}
+
+\hypertarget{a-function-returning-a-function.}{%
+\paragraph{A function returning a
+function.}\label{a-function-returning-a-function.}}
+In this example,
+
+\begin{lstlisting}
+int * (func_func (float, char)) (int, bool);
+\end{lstlisting}
+
+\hypertarget{a-notable-case}{%
+\paragraph{A notable case}\label{a-notable-case}}
+In this example,
+
+\begin{lstlisting}
+int * (func) (int, bool);
+\end{lstlisting}
+
+Is interpreted as a function, not as a variable of type pointer to a
+function.
+
+\hypertarget{variable-function-and-method-declarations}{%
+\subsection{Variable, function and method
+declarations}\label{variable-function-and-method-declarations}}
+
+\begin{lstlisting}
+FuncDecl = "(" [ ParamList ] ")" ( ";" | Block ) .
+VarDecl  = [ ArraySpec ] [ "=" InitExpression ] ( ";" | "," [ PtrSpec ] ( "(" [ PtrSpec ] Identifier FuncPtrVarDecl | Identifier VarDecl ) .
+MethDecl = "." Identifier "(" [ ParamList ] ")" Block .
+\end{lstlisting}
+
+\hypertarget{initializers}{%
+\subsubsection{Initializers}\label{initializers}}
+Only simple declarations at the file scope may be initialized\footnote{We may want to change this.}. 
+An initialization consists of a constant expression or a list of
+constant expressions separated by commas and enclosed by braces. An
+array or complex type requires an explicit set of braces for each level
+of nesting. Unions may not be initialized. All the components of a
+variable need not be explicitly initialized; uninitialized elements are
+set to zero. ADT types are initialized in the same way as aggregates
+with the exception of ADT function members which are ignored for the
+purposes of initialization. Elements of sparse arrays can be initialized
+by supplying a bracketed index for an element. Successive elements
+without the index notation continue to initialize the array in sequence.
+For example:
+
+\begin{lstlisting}
+byte a[256] = {
+    ['a'] 'A',    /* Set element 97 to 65 */
+    ['a'+1] 'B',  /* Set element 98 to 66 */
+    'C'           /* Set element 99 to 67 */
+};
+\end{lstlisting}
+
+If the dimensions of the array are omitted from the array-spec the
+compiler sets the size of each dimension to be large enough to
+accommodate the initialization. The size of the array in bytes can be
+found using sizeof.
+
+\begin{lstlisting}
+InitExpression     = Expression | ArrayElementInit | MemberInit | BlockInit .
+ArrayElementInit   = "[" Expression "]"  ( Expression | BlockInit ) .
+MemberInit         = "." Identifier Expression .
+BlockInit = "{" [ InitExpressionList ] "}" .
+InitExpressionList = InitExpression [ "," InitExpression ] .
+\end{lstlisting}
+
+\hypertarget{complex-type-declaration}{%
+\section{Complex type declaration}\label{complex-type-declaration}}
+
+Complex declarations define new aggregates, unions, ADT's and enums in
+the innermost active scope.
+
+\begin{lstlisting}
+ComplexDecl = ( AggrDecl | UnionDecl | AdtDecl | EnumDecl ) ";" .
+\end{lstlisting}
+
+\hypertarget{unions-and-aggregates}{%
+\subsection{Unions and aggregates}\label{unions-and-aggregates}}
+
+\begin{lstlisting}
+AggrDecl        = "aggr" [ Identifier ] "{" { AggrUnionMember } "}" [ Identifier ] .
+UnionDecl       = "union" [ Identifier ] "{" { AggrUnionMember } "}" [ Identifier ] .
+AggrUnionMember = ComplexDefs | VarMember .
+VarMember       = Type [ [ PtrSpec ]  ( SimpleMember | FuncPtrMember ) { "," [ PtrSpec ] ( SimpleMember | FuncPtrMember ) } ] ";" .
+SimpleMember    = Identifier [ ArraySpec ] .
+FuncPtrMember   = "(" [ PtrSpec ] Identifier [ ArraySpec ] ")" "(" [ParamList] ")" .
+\end{lstlisting}
+
+\hypertarget{abstract-data-types-1}{%
+\subsection{Abstract data types}\label{abstract-data-types-1}}
+
+\begin{lstlisting}
+AdtDecl                = "adt" [ Identifier ] [ AdtGenSpec ] "{" { AdtMember } "}" [ Identifier ] .
+AdtGenSpec             = "[" Identifier { "," Identifier "}" "]" .
+AdtMember              = [ Visibility ] Type [ [ PtrSPec ] ( AdtFuncPtrMember | AdtBaseMember ) ] ";" .
+AdtFuncPtrMember       = "(" [ PtrSpec ] Identifier ( AdtFuncPtrMethodMember | AdtFuncPtrVarMember ) .
+AdtFuncPtrMethodMember = "(" [ AdtMethodRefParam [ "," ParamList ] ] | ParamList ")" ")" "(" [ ParamList ] ")" .
+AdtFuncPtrVarMember    = [ ArraySpec ] ")" "(" [ ParamList ] ")"  [ "," [ PtrSpec ] ( "(" [ PtrSpec ] Identifier AdtFuncPtrVarMember | Identifier AdtVarMember ) ] .
+AdtBaseMember          = Identifier ( AdtMethodMember | AdtVarMember ) .
+AdtMethodMember        = "(" [ AdtMethodRefParam [ "," ParamList ] ] | ParamList ")" .
+AdtMethodRefParam      = ( "*" | "." ) Identifier [ Identifier ] .
+AdtVarMember           = [ ArraySpec ] [ "," [ PtrSpec ] ( "(" [ PtrSpec ] Identifier AdtFuncPtrVarMember | Identifier AdtVarMember ) ] .
+\end{lstlisting}
+
+\hypertarget{enumerators}{%
+\subsection{Enumerators}\label{enumerators}}
+
+\begin{lstlisting}
+EnumDecl   = "enum" [ Identifier ] "{" { EnumMember } "}" .
+EnumMember = Identifier [ "=" Expression ]
+\end{lstlisting}
+
+\hypertarget{type-definitions}{%
+\section{Type definitions}\label{type-definitions}}
+
+Type definitions are declarations which start with the keyword
+``typedef''. Type definitions can introduce new polymorphic variables in
+the innermost active scope, forward references to complex types and new
+names for basic and derived types.
+
+\begin{lstlisting}
+TypeDefs       = "typedef" ( PolyVarTypeDef | ForwardDef )
+PolyVarTypeDef = BaseType [ PtrSpec ] ( DerivedTypeDef | FuncPtrTypeDef ) ";" .
+DerivedTypeDef = Identifier [ ArraySpec ] .
+FuncPtrTypeDef = "(" [ PtrSpec ] Identifier [ ArraySpec ] ")" "(" [ParamList] ")" .
+ForwardDef     = ( "aggr" | "union" | "adt" ) Identifier ";" .
+\end{lstlisting}
+
+To declare complex types with mutually dependent pointers, it is
+necessary to use a typedef to predefine one of the types. Alef does not
+permit mutually dependent complex types, only references between them.
+For example:
+
+\begin{lstlisting}
+typedef aggr A;
+aggr B
+{
+    A *aptr;
+    B *bptr;
+};
+aggr A
+{
+    A *aptr;
+    B *bptr;
+};
+\end{lstlisting}
+
+%\hypertarget{examples-of-type-definitions}{%
+%\subsection{Examples of type
+%definitions:}\label{examples-of-type-definitions}}
+%
+%\hypertarget{a-polymorphic-definition.}{%
+%\subsubsection{A polymorphic
+%definition.}\label{a-polymorphic-definition.}}
+%
+%\begin{lstlisting}
+%typedef A;
+%(TypeDefs => "typedef" PolyVarTypeDef => "typedef" Identifier ";" => "typedef" "A" ";")
+%\end{lstlisting}
+%
+%\hypertarget{a-derived-type-definition.}{%
+%\subsubsection{A derived type
+%definition.}\label{a-derived-type-definition.}}
+%
+%\begin{lstlisting}
+%typedef int * array_ptr_to_int [];  
+%(TypeDefs => "typedef" PolyVarTypeDef => "typedef" Identifier DerivedTypeDef => 
+%  => "typedef" Identifier PtrSpec Identifier ArraySpec => 
+%    =*> "typedef" "int" "*" "array_ptr_to_int" "[]" ";")
+%\end{lstlisting}
+%
+%\hypertarget{a-function-pointer-type-definition.}{%
+%\subsubsection{A function pointer type
+%definition.}\label{a-function-pointer-type-definition.}}
+%
+%\begin{lstlisting}
+%typedef int (* array_ptr_to_func () ) (int, float, char) ";"
+%\end{lstlisting}
+%

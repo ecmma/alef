@@ -1,0 +1,33 @@
+% TEX root = ../main.tex
+\chapter{Execution model}
+
+Alef is a concurrent programming language designed for
+systems software. Exception handling, process management, and synchronization
+primitives are implemented by the language. Expressions use the same syntax
+as C, but the type system is substantially different. Alef supports object-oriented
+programming through static inheritance and information hiding. The language does not
+provide garbage collection, so programs are expected to manage their own memory.
+This manual provides a description of the syntax and semantics of the
+implementation.
+
+\noindent
+In the Alef execution model the term \textit{process} refers to a preemptively 
+scheduled thread of execution. A process may contain severl \textit{tasks}, which 
+are non-preemptively scheduled coroutines within a process. 
+
+The memory model does not define the sharing of memory between processes; 
+on a shared memory computer, processes will typically share the same address 
+space, while on a multicomputer processes may be located on physically distant 
+nodes with access only to local memory. In such a system, processes would not 
+share the same address space, therefore must communicate using message passing. 
+A group of tasks executing within the context of a process are defined to be 
+in the same address space. Tasks are scheduled during communication (sending or 
+receiving on/from channels) and synchronization (lock, unlock) operations. 
+The term \textit{thread} is used wherever the distinction between a process and 
+a task is unimportant. 
+
+\textit{
+In the current implementation, processes are implemented as plain OS forks, 
+while tasks are implemented as green threads, using a round
+robin scheduler implemented in the runtime -- scheduling of tasks is realized 
+through simple calls to \texttt{\_alef\_yield}.}

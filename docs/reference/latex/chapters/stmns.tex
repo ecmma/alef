@@ -1,0 +1,92 @@
+% !TEX root = ../main.tex
+
+\hypertarget{statements}{%
+\chapter{Statements}\label{statements}}
+
+Statements do not yield values, but have side effects.
+
+\begin{lstlisting}
+Statement = [ Expression ] ";" | LabelStmn | Block | SelectionStmn | LoopStmn | JumpStmn | ExceptionStmn | ProcessStmn | AllocationStmn . 
+\end{lstlisting}
+
+\hypertarget{label-statements}{%
+\section{Label statements}\label{label-statements}}
+
+\begin{lstlisting}
+LabelStmn = Identifier ":" Statement . 
+\end{lstlisting}
+
+\hypertarget{blocks}{%
+\section{Blocks}\label{blocks}}
+
+\begin{lstlisting}
+Block = [ "!" ] "{" [ { AutomaticDeclarations } ] | { Statement } "}" .
+AutomaticDeclarations = Type [ PtrSpec ] ( FuncPtrDeclarator FuncPtrVarDecl  |  Identifier VarDecl) 
+\end{lstlisting}
+
+\hypertarget{selection}{%
+\section{Selection}\label{selection}}
+
+\begin{lstlisting}
+SelectionStmn = IfElseStmn | SwitchStmn | TypeofStmn | AltStmn .
+IfElseStmn    = "if" "(" Expression ")" Statement [ "else" Statement ] .
+SwitchStmn    = "switch" Expression SwitchBody .
+SwitchBody    = ["!"] "{" { SwitchCase } "}" .
+SwitchCase    = "case" Expression ":" { Statement } | "default" ":" { Statement } .
+TypeofStmn    = "typeof" Expression TypeofBody .
+TypeofBody    = ["!"] "{" { TypeofCase } "}" .
+TypeofCase    = "case" CastExpression ":" { Statement } | "default" ":" { Statement } .
+AltStmn       = "alt" SwitchBody .
+\end{lstlisting}
+
+\hypertarget{loops}{%
+\section{Loops}\label{loops}}
+
+\begin{lstlisting}
+LoopStmn  = WhileStmn | DoStmn | ForStmn .
+WhileStmn = "while" "(" Expression ")" Statement .
+DoStmn    = "do" Statement "while" "(" Expression ")" .
+ForStmn   = "for" "(" [ Expression ] ";" [ Expression ] ";" [ Expression ] ")" Statement .
+\end{lstlisting}
+
+\hypertarget{jumps}{%
+\section{Jumps}\label{jumps}}
+
+\begin{lstlisting}
+JumpStmn     = GotoStmn | ContinueStmn | BreakStmn | ReturnStmn | BecomeStmn .
+GotoStmn     = "goto" Identifier ";" .
+ContinueStmn = "continue" [ IntLit ] ";" .
+BreakStmn    = "break" [ IntLit ] ";" .
+ReturnStmn   = "return" [ Expression ] ";" .
+BecomeStmn   = "become" Expression ";" .
+\end{lstlisting}
+
+\hypertarget{exceptions}{%
+\section{Exceptions}\label{exceptions}}
+
+\begin{lstlisting}
+ExceptionStmn = RaiseStmn | RescueStmn | CheckStmn .
+RaiseStmn     = "raise" [ Identifier ] ";" .
+RescueStmn    = "rescue" ( Statement | Identifier Block ) .
+CheckStmn     = "check" Expression [ "," StringLit ] ";" .
+\end{lstlisting}
+
+\hypertarget{process-control}{%
+\section{Process control}\label{process-control}}
+
+\begin{lstlisting}
+ProcessStmn = ProcStmn | TaskStmn | ParStmn .
+ProcStmn    = "proc" ExpressionList ";" .
+TaskStmn    = "task" ExpressionList ";" .
+ParStmn     = "par" Block ";" .
+\end{lstlisting}
+
+\hypertarget{allocations}{%
+\section{Allocations}\label{allocations}}
+
+\begin{lstlisting}
+AllocationStmn = AllocStmn | UnallocStmn .
+AllocStmn      = "alloc" ExpressionList  ";" .
+UnallocStmn    = "unalloc" ExpressionList ";" .
+\end{lstlisting}
+

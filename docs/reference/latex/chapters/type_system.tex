@@ -1,0 +1,412 @@
+% !TEX root = ../main.tex
+
+\hypertarget{type-system}{%
+\chapter{Type system}\label{type-system}}
+
+\hypertarget{basic-types}{%
+\section{Basic types}\label{basic-types}}
+
+Alef defines a small set of basic types:
+
+\begin{table}[h]
+  \centering
+\begin{tabular}{|c|c|c|}
+\hline
+name  & size    & type                  \\ \hline
+byte  & 8 bits  & unsigned byte         \\ \hline
+sint  & 16 bits & signed short int      \\ \hline
+usint & 16 bits & unsigned short int    \\ \hline
+int   & 32 bits & signed integer        \\ \hline
+uint  & 32 bits & unsigned integer      \\ \hline
+float & 64 bits & floating point        \\ \hline
+lint  & 64 bits & long signed integer   \\ \hline
+ulint & 64 bits & long unsigned integer \\ \hline
+chan  & 32 bits & channel               \\ \hline
+poly  & 64 bits & polymorphic type      \\ \hline
+\end{tabular}
+\end{table}
+
+where the given size is the minimum number of bits required to represent
+that type. The \passthrough{\lstinline!float!} type should be the
+highest precision floating point provided by the hardware, therefore
+format and precision are implementation dependent. The alignment of
+these types is implementation dependent as well. The
+\passthrough{\lstinline!chan!} type is actually a pointer to a
+runtime-system-defined object, and must be allocated before use, and are
+the size of a pointer. Polymorphic types are represented by a pointer
+and an hash of the type it currently represents. For a given
+implementation the polymorphic type has the same size as the following
+aggregate definition:
+
+\begin{lstlisting}
+aggr Polytype 
+{
+  void* ptr;
+  int   hash;
+};
+\end{lstlisting}
+
+The void type performs the special task of declaring procedures
+returning no value and as part of a derived type to form generic
+pointers. The void type may not be used as a basic type. The integral
+types are \passthrough{\lstinline!int!}, \passthrough{\lstinline!uint!}
+, \passthrough{\lstinline!sint!}, \passthrough{\lstinline!usint!} ,
+\passthrough{\lstinline!byte!}, \passthrough{\lstinline!lint!} and
+\passthrough{\lstinline!ulint!} . The arithmetic types are the integral
+types and the type \passthrough{\lstinline!float!}. The pointer type is
+a type derived from the \passthrough{\lstinline!\&!} (address of)
+operator or derived from a pointer declaration.
+
+From the point of view of the lexer types are all identifiers; however, the compiler 
+needs to distinguish identifiers and typenames; therefore, for the grammars, 
+identifiers naming types will be tokens of type \passthrough{\lstinline!Typename!}.
+\begin{lstlisting}
+BaseType = Typename [ ( ChanSpec | GenericInstantiation ) ] .
+GenericInstantiation = "[" Variant "]" . 
+Variant = TypeCast { "," TypeCast } . 
+ChanSpec = "(" Variant ")" [ ChanBufDim ] .  
+ChanBufDim = "[" Expression "]" . 
+\end{lstlisting}
+
+\hypertarget{channel-types}{%
+\subsection{Channel types}\label{channel-types}}
+
+The type specified by a chan declaration is actually a pointer to an
+internal object with an anonymous type specifier. Because of their
+anonymity, objects of this special type cannot be defined in
+declarations; instead they must be created by an alloc statement
+referring to a chan.
+
+\hypertarget{sync-channels}{%
+\subsubsection{Sync channels}\label{sync-channels}}
+
+A channel declaration without a buffer specification produces a
+synchronous communication channel. Threads sending values on the channel
+will block until some other thread receives from the channel. The two
+threads rendezvous and a value is passed between sender and receiver.
+
+\hypertarget{async-channels}{%
+\subsubsection{Async channels}\label{async-channels}}
+
+If buffers are specified, then an asynchronous channel is produced. A
+send operation will complete immediately while buffers are available,
+and will block if all buffers are in use. A receive operation will block
+if no value is buffered. If a value is buffered, the receive will
+complete and make the buffer available for a new send operation. Any
+senders waiting for buffers will then be allowed to continue.
+
+\hypertarget{variant-channels}{%
+\subsubsection{Variant channels}\label{variant-channels}}
+
+If multiple types are specified in a channel definition, the channel
+supplies a variant protocol. A variant protocol allows messages to be
+demultiplexed by type during a receive operation. A form of the alt
+statement allows the control flow to be modified based on the type of a
+value received from a channel supplying a variant protocol.
+
+\hypertarget{polymorphic-types}{%
+\subsection{Polymorphic types}\label{polymorphic-types}}
+
+The polymorphic type can be used to dynamically represent a value of any
+type. A polymorphic type is identified by an identifier defined in a
+polymorphic type definition or as a parameter to a polymorphic abstract
+data type. Distinct identifiers represent a value of the same structure
+but are different for the purposes of type checking. A polymorphic value
+is represented by a fat pointer, which consists of an integer tag (an
+identifier of the type, such as an hash) and a pointer to a value. Like
+channels, storage for the data must be allocated by the runtime.
+
+\hypertarget{enumerations}{%
+\subsection{Enumerations}\label{enumerations}}
+
+Enumerations are types whose value is limited to a set of integer
+constants. These constants, the members of the enumeration, are called
+enumerators. Enumeration variables are equivalent to integer variables.
+Enumerators may appear wherever an integer constant is legal. If the
+values of the enumerators are not defined explicitly, the compiler
+assigns incrementing values starting from 0. If a value is given to an
+enumerator, values are assigned to the following enumerators by
+incrementing the value for each successive member until the next
+assigned value is reached.
+
+\hypertarget{derived-types}{%
+\section{Derived types}\label{derived-types}}
+
+Types are derived in the same way as in C. Operators applied in
+declarations use one of the basic types to derive a new type. The
+deriving operators are:
+
+\begin{lstlisting}
+*     create a pointer to 
+&     yield the address of
+()    a function returning 
+[]    an array of
+\end{lstlisting}
+
+These operators bind to the name of each identifier in a declaration or
+definition. Both the \passthrough{\lstinline!\&!} prefix operator and
+the \passthrough{\lstinline!()!} operator have distinct rules in prefix
+unary expressions and basic declarations, respectively.
+
+\begin{lstlisting}
+ArraySpec = "[" [ Expression ] "]" { "[" [ Expression ] "]" } .
+PtrSpec = "*" { "*" } . 
+\end{lstlisting}
+
+\hypertarget{array-specifiers}{%
+\subsection{Array Specifiers}\label{array-specifiers}}
+
+The dimension of an array must be non-zero positive constant. Arrays
+have a lower bound of $0$ and an upper bound of $n-1$, where $n$ is the value
+of the constant expression.
+
+\hypertarget{complex-types}{%
+\section{Complex types}\label{complex-types}}
+
+Complex types may be either aggregates, unions, tuples, or abstract data
+types. These complex types contain sequences of basic types, derived
+types and other complex types, called members. Members are referenced by
+tag or by type, and members without tags are called unnamed. Arithmetic
+types, channel types, tuples, and complex types may be unnamed. Derived
+types may not be left unnamed. Complex unnamed members are referenced by
+type or by implicit promotion during assignment or when supplied as
+function arguments. Other unnamed members allocate storage but may not
+be referenced. Complex types are compared by structural rather than name
+equivalence.
+
+An aggregate is a simple collection of basic, derived\footnote{\textbf{@TODO}:
+  Can a function be defined inside an aggregate?} and complex types with
+unique storage for each member. Unions, instead, store each member in
+the same storage and its size is determined by the size of the largest
+member. Abstract data types, adt's, are comparable to aggregates, but
+also has a set of functions to manipulate objects of its type and a set
+of visibility attributes for his members, to allow information hiding.
+
+The declaration of complex types bind identifiers to such types, and
+after declaration such identifier can be used wherever a basic type is
+permitted. New type bindings may be defined from derived and basic types
+using the \passthrough{\lstinline!typedef!} statement.
+
+The complex types are \passthrough{\lstinline!aggr!},
+\passthrough{\lstinline!adt!}, \passthrough{\lstinline!union!} and
+\passthrough{\lstinline!tuple!}\footnote{\textbf{@TODO}: Maybe we could
+  clarify, in a ``mechanical'' way, how complex type fit in the type
+  system?}\footnote{\textbf{@TODO}: Clarify why tuples are different
+  from other complex types, i.e.~why they can be declared as basic types
+  can (inline).}.
+
+\begin{lstlisting}
+Type = BaseType | [ "tuple" ] "(" TupleList ")" .
+TupleList = TypeCast "," TypeCast { "," TypeCast } .
+\end{lstlisting}
+
+What follows is a in-depth analysis of the meaning of the complex types.
+Grammar rules for deriving such constructs will be given in the
+Declarations section.
+
+\hypertarget{tuples}{%
+\subsection{Tuples}\label{tuples}}
+
+A tuple is a collection of types forming a single object which can be
+used in the place of an unnamed complex type. The individual members of
+a tuple can only be accessed by assignment. When the declaration of a
+tuple would be ambiguous because of the parenthesis (for instance in the
+declaration of an automatic variable), use the keyword tuple:
+
+\begin{lstlisting}
+void
+f()
+{
+    int a;
+    tuple (int, byte, Rectangle) b;
+      int c;
+}
+\end{lstlisting}
+
+Type checking of tuple expressions is performed by matching the shape of
+each of the component types. Tuples may only be addressed by assignment
+into other complex types or l-valued tuple expressions. A parenthesized
+list of expressions forms a tuple constructor, while a list of l-valued
+expressions on the left hand side forms a destructor.
+
+For example, to make a function return multiple values:
+
+\begin{lstlisting}
+(int, byte*, byte) func()
+{
+      return (10, "hello", 'c');
+}
+void main()
+{
+      int a;
+      byte* str;
+      byte c;
+      (a, str, c) = func();
+}
+\end{lstlisting}
+
+When a tuple appears as the left-hand side of an assignment, type
+checking proceeds as if each individual member of the tuple were an
+assignment statement to the corresponding member of the complex type on
+the right-hand side. If a tuple appears on the right hand side of an
+assignment where the left-hand side yields a complex type then the types
+of each individual member of the tuple must match the corresponding
+types of the complex type exactly. If a tuple is cast into a complex
+type then each member of the tuple will be converted into the type of
+the corresponding member of the complex type under the rules of
+assignment:
+
+\begin{lstlisting}
+aggr X
+{
+      int a;
+      byte b;
+};
+
+void main()
+{
+      X x; 
+      byte c;
+      x = (10, c);      /* Members match exactly */
+      x = (X)(10, 1.5); /* float is converted to byte */
+}
+\end{lstlisting}
+
+\hypertarget{abstract-data-types}{%
+\subsection{Abstract data types}\label{abstract-data-types}}
+
+An abstract data type (ADT) defines both storage for members, as in an
+aggregate, and the operations that can be performed on that type. Access
+to the members of an abstract data type is restricted to enable
+information hiding. The scope of the members of an abstract data type
+depends on their type. By default access to members that define data is
+limited to the member functions. Members can be explicitly exported from
+the type using the extern storage class in the member declaration.
+Member functions are visible by default, the opposite behavior of data
+members. Access to a member function may be restricted to other member
+functions by qualifying the declaration with the intern storage class.
+The four combinations are:
+
+\begin{lstlisting}
+adt Point
+{
+    int x;                    /* Access only by member fns */
+    extern int y;             /* by everybody */
+    Point set(Point*);        /* by everybody */
+    intern Point tst(Point);  /* only by member fns */
+};
+\end{lstlisting}
+
+\hypertarget{member-functions-methods}{%
+\subsubsection{Member functions
+(methods)}\label{member-functions-methods}}
+
+Member functions are defined by type and name. The pair forms a unique
+name for the function, so the same member function name can be used in
+many types. Using the last example, the member function set could be
+defined as:
+
+\begin{lstlisting}
+Point Point.set(Point *a)
+{
+    a->x = 0; /* Set Point value to zero */
+    a->y = 0;
+    return *a;
+}
+\end{lstlisting}
+
+An implicit argument of either a pointer to the ADT or the value of the
+ADT may be passed to a member function. If the first argument of the
+member function declaration in the ADT specification is
+\passthrough{\lstinline!* Identifier!} (with the * preceding the name of
+the ADT), then a pointer to the ADT is automatically passed as the first
+parameter, similarly to the \passthrough{\lstinline!self!} construct in
+Smalltalk. If the declaration is of the form
+\passthrough{\lstinline!. Identifier!} then the value of the ADT will be
+passed to the member function, rather than a pointer to it:
+
+\begin{lstlisting}
+adt Point
+{
+    int x;
+    extern int y;
+    Point set(*Point); /* Pass &Point as 1st arg */
+    Point clr(.Point); /* Pass Point as 1st arg */
+    intern Point tst(Point);
+};
+
+void func()
+{
+    Point p;
+    p.set(); /* Set receives &p as 1st arg */
+}
+\end{lstlisting}
+
+\hypertarget{polymorphic-and-parametrized-adts}{%
+\subsubsection{Polymorphic and parametrized
+ADTs}\label{polymorphic-and-parametrized-adts}}
+
+Alef allows the construction of type-parameterized abstract data types,
+similar to generic abstract data types in Ada and Eiffel. An ADT is
+parameterized by supplying type parameter names in the declaration. The
+type parameters may be used to specify the types of members of the ADT.
+The argument type names have the same effect as a typedef to the
+polymorphic type. The scope of the types supplied as arguments is the
+same as the ADT typename and can therefore be used as a type specifier
+in simple declarations. For example the definition of a stack type of
+parameter type \passthrough{\lstinline!T!} may be defined as:
+
+\begin{lstlisting}
+adt Stack[T]
+{
+    int tos;
+    T data[100];
+    void push(*Stack, T);
+    T pop(*Stack);
+};
+\end{lstlisting}
+
+Member functions of Stack are written in terms of the parameter type T.
+The implementation of push might be:
+
+\begin{lstlisting}
+void Stack.push(Stack *s, T v)
+{
+    s->data[s->tos++] = v;
+}
+\end{lstlisting}
+
+\hypertarget{bound-and-unbound-parametrized-adts}{%
+\paragraph{Bound and unbound parametrized
+ADTs}\label{bound-and-unbound-parametrized-adts}}
+
+The \passthrough{\lstinline!Stack!} type can be instantiated in two
+forms. In the bound form, a type is specified for T. The program is type
+checked as if the supplied type were substituted for T in the ADT
+declaration. For example:
+
+\begin{lstlisting}
+Stack[int] stack;
+\end{lstlisting}
+
+declares a stack where each element is an int. In the bound form a type
+must be supplied for each parameter type.
+
+In the unbound form no parameter types are specified. This allows values
+of any type to be stored in the stack. For example:
+
+\begin{lstlisting}
+Stack poly;
+\end{lstlisting}
+
+declares a stack where each element has polymorphic type.
+
+\hypertarget{conversions-and-promotions}{%
+\section{Conversions and Promotions}\label{conversions-and-promotions}}
+
+Alef performs the same implicit conversions and promotions as ANSI C
+with the addition of complex type promotion: under assignment, function
+parameter evaluation, or function returns, Alef will promote an unnamed
+member of a complex type into the type of the left-hand side, formal
+parameter, or function.
+
