@@ -1,24 +1,11 @@
-[![builds.sr.ht status](https://builds.sr.ht/~ecmma/alef-parser.svg)](https://builds.sr.ht/~ecmma/alef-parser?)
-# alef-parser 
-An Alef parser written in Rust; this crate is a work in progress. 
-The objective is to have a working lexer, parser, typechecker and importer for Alef source files. 
-Technically the reference documentation is complete, as Alef has been described by Phil Winterbottom at 
-Bell Labs in the '90s; however, this is to be considered a somewhat modernized implementation, 
-therefore some changes are expected. 
+## Alef 
+[Alef](https://en.wikipedia.org/wiki/Alef_(programming_language)) is a general 
+purpose concurrent programming language, designed as part of the Plan 9 operating system. 
 
-## Todos: 
-* [] Syntax analysis
-    * [] Implement the parser 
-        * [] Figure out how to parse ambiguous nodes (x * y: is it a declaration or a multiplication?) 
-        or surrend and use a symbol table in the parser
-* [] Type system
-    * [] (?) Figure out whether it's ok to modernize the type system or not: could we still call it *Alef*?
-        * [] Remove distinction between strings and runestrings: every string is UTF-8
-        * [] Implement pointers as low-fat safe pointers
-    * [] (?) Write a formal documentation for the type system, or at least the safe part of it, and try to 
-    prove soundness 
-    * [] Implement the typechecker
-* [] Module system
-    * [] (?) Figure out whether it's ok to drop the preprocessor system used originally in favour of a more
-    modern (module based) approach
-    * [] Remove support for preprocessor and implement the module system
+In this repository we'll try to give a modern implementation of Alef using 
+the Rust programming language.
+
+### The plan 
+* Modernize the [reference](docs/reference)
+* Implement AST, lexer and parser (wip in [alef-parser](parser)). 
+* Target a backend such as [qbe](https://c9x.me/compile/), LLVM or Cranelift.
